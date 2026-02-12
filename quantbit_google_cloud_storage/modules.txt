@@ -1,1 +1,2 @@
 quantbit_google_cloud_storage
+Cloud Storage
