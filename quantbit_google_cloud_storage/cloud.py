@@ -88,9 +88,7 @@ def upload_file_to_gcs(*args, **kwargs):
 			"Key": fname,
 			"Body": content,
 			"ContentType": content_type or "application/octet-stream",
-			"ACL": "private" if is_private else "public-read"
 		}
-		
 		s3.put_object(**params)
 		
 		# Construct URL
@@ -139,3 +137,4 @@ def delete_file_from_gcs(doc, only_thumbnail=False):
 	except Exception as e:
 		frappe.log_error("S3 Delete Failed", str(e))
 		pass
+
