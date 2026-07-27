@@ -1,4 +1,6 @@
 import mimetypes
+from urllib.parse import unquote, urlparse
+
 import boto3
 import frappe
 from frappe import _
@@ -27,7 +29,7 @@ def get_s3_client():
 		aws_access_key_id=config.get("access_key"),
 		aws_secret_access_key=config.get("secret_key"),
 		endpoint_url=config.get("endpoint_url"),
-		region_name=config.get("region")
+		region_name=config.get("region") or "auto",
 	)
 
 def get_bucket_name():
@@ -124,17 +126,40 @@ def delete_file_from_gcs(doc, only_thumbnail=False):
 		if not client:
 			from frappe.utils.file_manager import delete_file_from_filesystem
 			return delete_file_from_filesystem(doc, only_thumbnail)
-			
+
 		s3 = client
 		bucket_name = get_bucket_name()
-		
-		if not only_thumbnail and doc.file_name:
-			s3.delete_object(Bucket=bucket_name, Key=doc.file_name)
+		if only_thumbnail:
+			return
+
+		object_key = None
+		for candidate in [getattr(doc, "file_name", None), getattr(doc, "file_url", None)]:
+			if not candidate:
+				continue
+
+			if "://" in candidate:
+				parsed = urlparse(candidate)
+				path = unquote(parsed.path.lstrip("/"))
+				if path.startswith(f"{bucket_name}/"):
+					path = path[len(bucket_name) + 1 :]
+				elif path.startswith("files/") or path.startswith("private/files/"):
+					path = path.split("/", 1)[1]
+				object_key = path
+			else:
+				object_key = candidate.strip("/")
+
+			if object_key:
+				break
+
+			if not object_key:
+				frappe.throw(_("Unable to determine object key for remote file deletion"))
+
+		s3.delete_object(Bucket=bucket_name, Key=object_key)
 
 		# Thumbnail deletion logic if applicable
 		# if doc.thumbnail_url: ...
-		
+
 	except Exception as e:
-		frappe.log_error("S3 Delete Failed", str(e))
-		pass
+		frappe.log_error("S3 Delete Failed", f"{str(e)} | key={object_key if 'object_key' in locals() else None}")
+		raise
 
