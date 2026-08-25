@@ -166,7 +166,6 @@
 
 
 
-
 import mimetypes
 from urllib.parse import unquote, urlparse
 
@@ -264,15 +263,22 @@ def upload_file_to_gcs(*args, **kwargs):
 		
 		s3 = client
 		bucket_name = get_bucket_name()
-		
-		if not content_type:
-			content_type, encoding = mimetypes.guess_type(fname)
+		# Resolve standard lowercase MIME type (e.g., application/pdf)
+		mime_type = None
+		if fname:
+			mime_type, _ = mimetypes.guess_type(fname)
+		if not mime_type and content_type:
+			if "/" in content_type:
+				mime_type = content_type
+			else:
+				mime_type, _ = mimetypes.guess_type(f"dummy.{content_type.lower()}")
+		mime_type = mime_type or "application/octet-stream"
 		
 		params = {
 			"Bucket": bucket_name,
 			"Key": fname,
 			"Body": content,
-			"ContentType": content_type or "application/octet-stream",
+			"ContentType": mime_type,
 		}
 		s3.put_object(**params)
 		
@@ -352,3 +358,4 @@ def delete_file_from_gcs(doc, only_thumbnail=False):
 	except Exception as e:
 		frappe.log_error("S3 Delete Failed", f"{str(e)} | key={object_key if 'object_key' in locals() else None}")
 		raise
+
