@@ -92,6 +92,7 @@ def upload_file_to_gcs(*args, **kwargs):
 	if not fname or content is None:
 		frappe.throw(_("Missing file name or content for GCS upload"))
 
+	# For Data Import, do not use the custom naming series prefix to prevent exceeding Frappe's 140 character limit
 	is_data_import = (attached_to_doctype and attached_to_doctype.strip() == "Data Import") or (frappe.form_dict.get("doctype") == "Data Import")
 
 	if not is_data_import:
